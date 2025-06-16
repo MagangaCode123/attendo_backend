@@ -31,6 +31,9 @@ app.post('/login', (req,res)=>{
     if(password === 'Admin@123' && email === 'admin@test.com'){
         return res.status(200).json({message: 'Login Successful'})
     }
+    else{
+        return res.status(401).json({message: 'Unauthorized accesss, invalid email/password'})
+    }
 })
 
 
