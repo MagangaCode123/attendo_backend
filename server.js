@@ -1,43 +1,150 @@
-const express = require('express')
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+require('dotenv').config(); 
 
+const app = express();
+const port = process.env.PORT || 3000; 
 
-const app = express()
-const port = 3000
-let cors = require('cors')
+const EmployeeModel = require('./models/employeeModel');
 
-app.use(cors()) //enable 
+// Middleware
+app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-
-
+// Basic route
 app.get('/', (req, res) => {
-    res.send('Hello World!')
-  })
+    res.send('Hello World!');
+});
+
+// Authentication routes
+app.post('/login', async(req, res) => {
+   
+  const {email, password} = req.body
+
+  
+  
+
+  //data verification
+  if(!email || !password){
+    res.status(401).json({message:"Incomplete user credentials"})
+  }
+
+  //user exists
+  const user = await EmployeeModel.findOne({email})
+
+  if(!user){
+    res.status(401).json({message:"User does not exist"})
+  }
+
+  //compare passwords
+  const isMatch = await bcrypt.compare(password, user.password)
+
+  if(!isMatch){
+    res.status(401).json({message:"Invalid password"})
+  }
+
+      //create token
+      const token = jwt.sign({email: email}, process.env.JWT_ACCESS_KEY, {expiresIn: '1h'})
+
+      res.cookie('token',token,{
+          httpOnly:true,
+          maxAge: 900000,
+          // secure:true
+      } )
+
+  res.status(201).json({message:"User logged in successfully"})
+
+  
 
 
+  
+});
 
-app.post('/login', (req,res)=>{
-    
-    console.log('req',req.body)
 
-    const {email, password} = req.body
+app.post('/register', async(req,res)=>{
 
-    if(!password || !email){
-        return res.status(401).json({message: 'Unauthorized accesss, missing email/password'})
+  const fields = req.body
+ 
+   //data verification
+  if(!fields.fullName || !fields.email || !fields.password){
+    res.status(401).json({message:"Incomplete user credentials"})
+  }
+
+  //user duplication 
+  const user = await EmployeeModel.findOne({email: fields.email})
+  //user exists
+  if(user){
+    res.status(401).json({message:"User already exists"})
+  }
+
+    //email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if(!emailRegex.test(fields.email)){
+      res.status(401).json({message:"Invalid email"})
+    }
+
+    //password validation
+    const passwordRegex = /^[a-zA-Z0-9]{8,}$/;
+    if(!passwordRegex.test(fields.password)){
+      res.status(401).json({message:"Invalid password"})
     }
 
 
-    if(password === 'Admin@123' && email === 'admin@test.com'){
-        return res.status(200).json({message: 'Login Successful'})
+    //password encryption
+    const hashedPassword = await bcrypt.hash(fields.password, 10)
+
+    //create token
+    const token = jwt.sign({email: fields.email}, process.env.JWT_ACCESS_KEY, {expiresIn: '1h'})
+
+    res.cookie('token',token,{
+        httpOnly:true,
+        maxAge: 900000,
+        // secure:true
+    } )
+
+
+    //registering user
+    try{
+      await EmployeeModel.create({
+        ...fields,
+        password:hashedPassword
+      })
+      res.status(201).json({message:"User registered successfully"})
     }
-    else{
-        return res.status(401).json({message: 'Unauthorized accesss, invalid email/password'})
+    catch(err){
+      res.status(401).json({message:"Error registering user", err})
+      console.log(err)
     }
 })
 
 
 
-app.listen(port, () => {
-    console.log(`Example app listening on port ${port}`)
-  })
+
+
+// Database connection and server startup
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+})
+.then(() => {
+  console.log('Connected to MongoDB');
+  app.listen(port, () => {
+      console.log(`Server running on port ${port}`);
+  });
+})
+.catch(err => {
+  console.error('Database connection error:', err.message);
+  process.exit(1);
+});
+
+// Error handling middleware (added for better error handling)
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).json({ message: 'Something went wrong!' });
+    next()
+});
