@@ -22,11 +22,9 @@ const EmployeeSchema = new mongoose.Schema({
     department: {
         type: String,
         enum: ['IT', 'HR', 'Finance', 'Operations', 'Marketing', 'Sales'],
-        required: true
     },
     position: {
         type: String,
-        required: true
     },
     hireDate: {
         type: Date,
@@ -34,11 +32,9 @@ const EmployeeSchema = new mongoose.Schema({
     },
     salary: {
         type: Number,
-        required: true
     },
     contactNumber: {
         type: String,
-        required: true
     },
     emergencyContact: {
         name: String,
@@ -56,6 +52,7 @@ const EmployeeSchema = new mongoose.Schema({
         default: ''
     }
 },{timestamps:true})
+
 
 
 module.exports = mongoose.model("Employee",EmployeeSchema)

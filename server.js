@@ -9,6 +9,7 @@ const app = express();
 const port = process.env.PORT || 3000; 
 
 const EmployeeModel = require('./models/employeeModel');
+const EmployeeAttendance = require('./models/employeeAttendance');
 
 // Middleware
 app.use(cors());
@@ -19,6 +20,18 @@ app.use(express.urlencoded({ extended: true }));
 app.get('/', (req, res) => {
     res.send('Hello World!');
 });
+
+//Fetching employees data
+app.get("/fetchemployee", async (req, res) => {
+  try {
+    const employees = await EmployeeModel.find();
+    res.status(200).json({ message: "Employees fetched successfully", employees });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error fetching employee data", error: err.message });
+  }
+});
+
 
 // Authentication routes
 app.post('/login', async(req, res) => {
@@ -56,14 +69,39 @@ app.post('/login', async(req, res) => {
           // secure:true
       } )
 
-  res.status(201).json({message:"User logged in successfully"})
+  // 5. Determine today's date (set time to 00:00:00)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Normalize time
 
-  
+  // 6. Check if an attendance record already exists for today
+  const existingAttendance = await EmployeeAttendance.findOne({
+    employeeId: user._id,
+    date: today
+  });
 
+  // 7. If not, create attendance record
+  if (!existingAttendance) {
+    await EmployeeAttendance.create({
+      employeeId: user._id,
+      date: today,
+      checkInTime: new Date() // Actual login time
+    });
+  }
 
-  
+  res.status(201).json({message:"User logged in successfully"})  
 });
 
+app.get( '/employeeattendance', async( req, res) =>{
+ try{
+  const attendance = await EmployeeAttendance.find();
+  res.status(201).json({ message: "Employee attendance fetched succesfully", attendance});}
+  catch(err) {
+    console.error(err);
+    res.status(501),json ({message: "Error fetching attendance model", Error: err.message});
+  }
+
+}
+)
 
 app.post('/register', async(req,res)=>{
 
@@ -125,7 +163,6 @@ app.post('/register', async(req,res)=>{
 
 
 
-
 // Database connection and server startup
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
@@ -148,3 +185,4 @@ app.use((err, req, res, next) => {
     res.status(500).json({ message: 'Something went wrong!' });
     next()
 });
+
